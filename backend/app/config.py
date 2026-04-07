@@ -1,0 +1,40 @@
+import secrets
+from pathlib import Path
+
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_ENV_FILE = _BACKEND_DIR / ".env"
+_DB_PATH = _BACKEND_DIR / "data" / "movies.db"
+
+
+def _generate_secret_key() -> str:
+    return secrets.token_hex(32)
+
+
+class Settings(BaseSettings):
+    app_name: str = "Movie Recommender API"
+    gemini_api_key: str = ""
+    secret_key: str = ""
+    database_url: str = f"sqlite:///{_DB_PATH}"
+    access_token_expire_minutes: int = 1440  # 24 hours
+    algorithm: str = "HS256"
+
+    # Recommendation tuning
+    content_weight: float = 0.4
+    collaborative_weight: float = 0.4
+    popularity_weight: float = 0.2
+    cold_start_threshold: int = 5  # min ratings before collaborative kicks in
+
+    model_config = {"env_file": str(_ENV_FILE), "extra": "ignore"}
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.secret_key:
+            self.secret_key = _generate_secret_key()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
