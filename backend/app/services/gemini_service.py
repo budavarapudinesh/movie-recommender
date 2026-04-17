@@ -1,6 +1,10 @@
+import logging
+
 from google import genai
 from google.genai import types
 from sqlalchemy.orm import Session, joinedload
+
+logger = logging.getLogger(__name__)
 
 from app.config import get_settings
 from app.models.movie import Movie
@@ -63,17 +67,20 @@ class GeminiService:
             contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
         contents.append(types.Content(role="user", parts=[types.Part.from_text(text=message)]))
 
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                temperature=0.8,
-                max_output_tokens=1024,
-            ),
-        )
-
-        reply = response.text if response.text else "I couldn't generate a response. Please try again."
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=0.8,
+                    max_output_tokens=1024,
+                ),
+            )
+            reply = response.text or "I couldn't generate a response. Please try again."
+        except Exception as e:
+            logger.error(f"Gemini API error: {e}")
+            return "The AI assistant is temporarily unavailable. Please try again later.", []
 
         # Try to match mentioned movies from DB
         mentioned_ids = self._extract_movie_ids(reply, db) if db else []

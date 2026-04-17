@@ -20,7 +20,6 @@ BACKDROP_RE = re.compile(r'class="backdrop"[^>]*style="[^"]*url\([^)]*(/[^)]+\.j
 def fetch_posters():
     db = SessionLocal()
     client = httpx.Client(
-        verify=False,
         follow_redirects=True,
         timeout=15,
         headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
@@ -31,6 +30,7 @@ def fetch_posters():
             db.query(Movie)
             .filter(Movie.poster_path == "")
             .order_by(Movie.popularity.desc())
+            .limit(200)
             .all()
         )
         print(f"Fetching posters for {len(movies)} movies...")

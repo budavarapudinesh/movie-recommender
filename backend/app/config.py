@@ -1,8 +1,11 @@
+import logging
 import secrets
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _ENV_FILE = _BACKEND_DIR / ".env"
@@ -21,6 +24,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440  # 24 hours
     algorithm: str = "HS256"
 
+    tmdb_api_key: str = ""
+    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    debug: bool = True
+
     # Recommendation tuning
     content_weight: float = 0.4
     collaborative_weight: float = 0.4
@@ -33,6 +40,10 @@ class Settings(BaseSettings):
         super().__init__(**kwargs)
         if not self.secret_key:
             self.secret_key = _generate_secret_key()
+            logger.warning(
+                "SECRET_KEY not set in environment — using a randomly generated key. "
+                "Sessions will be invalidated on restart. Set SECRET_KEY in .env for production."
+            )
 
 
 @lru_cache

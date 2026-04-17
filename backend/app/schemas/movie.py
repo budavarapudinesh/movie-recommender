@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+import json
+from typing import Any
+
+from pydantic import BaseModel, field_validator
 
 
 class GenreOut(BaseModel):
@@ -6,6 +9,14 @@ class GenreOut(BaseModel):
     name: str
 
     model_config = {"from_attributes": True}
+
+
+class WatchProvider(BaseModel):
+    provider_id: int
+    provider_name: str
+    logo_path: str
+    type: str
+    link: str
 
 
 class MovieOut(BaseModel):
@@ -25,8 +36,22 @@ class MovieOut(BaseModel):
     director: str
     top_cast: str
     genres: list[GenreOut]
+    watch_providers: list[WatchProvider] = []
+    content_type: str = "movie"
+    trailer_url: str = ""
 
     model_config = {"from_attributes": True}
+
+    @field_validator("watch_providers", mode="before")
+    @classmethod
+    def parse_watch_providers(cls, v: Any) -> Any:
+        """Accept either a JSON string (from ORM) or a list (already parsed)."""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return []
+        return v if v is not None else []
 
 
 class MovieBrief(BaseModel):

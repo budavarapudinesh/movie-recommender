@@ -14,7 +14,7 @@ export default function RecommendationCarousel({
 
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-bold text-white mb-4">{title}</h2>
+      {title && <h2 className="text-xl font-bold text-white mb-4">{title}</h2>}
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-700">
         {items.map((item) => (
           <div key={item.movie.id} className="flex-shrink-0 w-40">

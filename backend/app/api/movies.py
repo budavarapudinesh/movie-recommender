@@ -1,21 +1,57 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import json
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
+from app.config import get_settings
 from app.database import get_db
 from app.models.movie import Movie, Genre
 from app.schemas.movie import MovieOut, MovieBrief, MovieListResponse, GenreOut
+from app.services.tmdb_service import tmdb_service
 
 router = APIRouter(prefix="/api/movies", tags=["movies"])
+
+
+def _build_movie_out(movie: Movie) -> MovieOut:
+    """Build MovieOut — watch_providers JSON string is parsed by field_validator."""
+    return MovieOut.model_validate(movie)
+
+
+def _fetch_tmdb_and_update(movie_id: int) -> None:
+    """Background task: fetch TMDB data for a movie and persist it."""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        movie = db.query(Movie).filter(Movie.id == movie_id).first()
+        if not movie:
+            return
+        settings = get_settings()
+        if not settings.tmdb_api_key:
+            return
+        details = tmdb_service.get_movie_details(movie.tmdb_id)
+        if details:
+            movie.poster_path = details.get("poster_path", "") or movie.poster_path
+            movie.backdrop_path = details.get("backdrop_path", "") or movie.backdrop_path
+        providers = tmdb_service.get_watch_providers(movie.tmdb_id)
+        movie.watch_providers = json.dumps(providers)
+        movie.trailer_url = tmdb_service.get_movie_videos(movie.tmdb_id)
+        db.commit()
+    except Exception:
+        pass
+    finally:
+        db.close()
 
 
 @router.get("", response_model=MovieListResponse)
 def list_movies(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    genre: str | None = None,
-    search: str | None = None,
+    genre: Optional[str] = None,
+    search: Optional[str] = None,
     sort_by: str = Query("popularity", pattern="^(popularity|vote_average|release_date|title)$"),
+    content_type: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     query = db.query(Movie).options(joinedload(Movie.genres))
@@ -31,6 +67,9 @@ def list_movies(
                 Movie.director.ilike(f"%{search}%"),
             )
         )
+
+    if content_type:
+        query = query.filter(Movie.content_type == content_type)
 
     total = query.count()
 
@@ -101,12 +140,51 @@ def featured_movies(db: Session = Depends(get_db)):
         .limit(5)
         .all()
     )
-    return movies
+    return [_build_movie_out(m) for m in movies]
+
+
+@router.get("/{movie_id}/watch")
+def get_watch_link(movie_id: int, db: Session = Depends(get_db)):
+    """Get direct watch link for a movie (JustWatch fallback)."""
+    movie = db.query(Movie).filter(Movie.id == movie_id).first()
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    try:
+        providers = json.loads(movie.watch_providers or "[]")
+    except Exception:
+        providers = []
+
+    justwatch_url = (
+        f"https://www.justwatch.com/us/search?q={movie.title.replace(' ', '+')}"
+    )
+
+    return {
+        "title": movie.title,
+        "providers": providers,
+        "justwatch_url": justwatch_url,
+        "tmdb_url": f"https://www.themoviedb.org/movie/{movie.tmdb_id}/watch",
+    }
 
 
 @router.get("/{movie_id}", response_model=MovieOut)
-def get_movie(movie_id: int, db: Session = Depends(get_db)):
-    movie = db.query(Movie).options(joinedload(Movie.genres)).filter(Movie.id == movie_id).first()
+def get_movie(
+    movie_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    movie = (
+        db.query(Movie)
+        .options(joinedload(Movie.genres))
+        .filter(Movie.id == movie_id)
+        .first()
+    )
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
-    return movie
+
+    # If poster is missing and TMDB key is set, fetch in background
+    settings = get_settings()
+    if movie.poster_path == "" and settings.tmdb_api_key:
+        background_tasks.add_task(_fetch_tmdb_and_update, movie_id)
+
+    return _build_movie_out(movie)

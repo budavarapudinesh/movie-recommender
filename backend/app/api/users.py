@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -8,14 +10,20 @@ from app.schemas.user import UserCreate, UserOut, Token, LoginRequest, RatingCre
 from app.services.auth_service import hash_password, verify_password, create_access_token, get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(data: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == data.username).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
-    if db.query(User).filter(User.email == data.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+@limiter.limit("3/minute")
+def register(request: Request, data: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(
+        (User.username == data.username) | (User.email == data.email)
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="An account with this username or email already exists.",
+        )
 
     user = User(
         username=data.username,
@@ -29,7 +37,8 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == data.username).first()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")

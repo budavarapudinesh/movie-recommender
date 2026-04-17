@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8002/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api",
 });
 
 api.interceptors.request.use((config) => {
@@ -16,8 +16,12 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
+  (error: unknown) => {
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      typeof window !== "undefined"
+    ) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }
@@ -28,6 +32,14 @@ api.interceptors.response.use(
 export interface Genre {
   id: number;
   name: string;
+}
+
+export interface WatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string;
+  type: string;
+  link: string;
 }
 
 export interface MovieBrief {
@@ -50,6 +62,9 @@ export interface MovieFull extends MovieBrief {
   tagline: string;
   director: string;
   top_cast: string;
+  watch_providers: WatchProvider[];
+  content_type: string;
+  trailer_url: string;
 }
 
 export interface RecommendationItem {
@@ -70,6 +85,7 @@ export const getMovies = (params: {
   genre?: string;
   search?: string;
   sort_by?: string;
+  content_type?: string;
 }) => api.get<{ movies: MovieBrief[]; total: number; page: number; per_page: number }>("/movies", { params });
 
 export const getMovie = (id: number) => api.get<MovieFull>(`/movies/${id}`);
@@ -82,6 +98,8 @@ export const getMoviesByGenre = (limit = 15) =>
   api.get<Record<string, MovieBrief[]>>("/movies/by-genre", { params: { limit } });
 
 export const getFeatured = () => api.get<MovieFull[]>("/movies/featured");
+
+export const getWatchLink = (id: number) => api.get<{ url: string }>(`/movies/${id}/watch`);
 
 // Auth
 export const register = (data: { username: string; email: string; password: string }) =>

@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
 from app.schemas.movie import MovieBrief
 
 
@@ -14,13 +17,13 @@ class RecommendationResponse(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    role: str  # "user" or "assistant"
-    content: str
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=2000)
 
 
 class ChatRequest(BaseModel):
-    message: str
-    history: list[ChatMessage] = []
+    message: str = Field(max_length=2000)
+    history: list[ChatMessage] = Field(default=[], max_length=50)
 
 
 class ChatResponse(BaseModel):

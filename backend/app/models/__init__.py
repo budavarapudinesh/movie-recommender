@@ -1,0 +1,3 @@
+from app.models.movie import Movie, Genre
+from app.models.user import User
+from app.models.rating import Rating

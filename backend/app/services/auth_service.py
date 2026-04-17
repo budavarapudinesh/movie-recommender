@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
+import jwt as pyjwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -27,7 +27,8 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+    # PyJWT 2.x returns a str directly
+    return pyjwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
 def get_current_user(
@@ -40,12 +41,12 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = pyjwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id_str = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
         user_id = int(user_id_str)
-    except (JWTError, ValueError):
+    except (pyjwt.PyJWTError, ValueError):
         raise credentials_exception
 
     user = db.query(User).filter(User.id == user_id).first()

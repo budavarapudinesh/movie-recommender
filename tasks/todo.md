@@ -62,6 +62,20 @@ Full codebase review for movie-recommender project (FastAPI + Next.js + ML)
 ### Code Organization
 - Created tasks/todo.md and tasks/lessons.md for tracking
 
+## Execution Tasks
+- [ ] **Setup Phase**
+  - [x] Create Python virtual environment
+  - [x] Install backend dependencies
+  - [x] Install frontend dependencies
+- [ ] **Database & ML Phase**
+  - [x] Initialize database schema
+  - [x] Seed database with ratings
+  - [x] Train recommendation models
+- [x] **Run Phase**
+  - [x] Start backend server (port 8000)
+  - [x] Start frontend server (port 3000)
+  - [x] Verify health status
+
 ## Notes
 - Project uses SQLite for local dev
 - JWT auth with bcrypt

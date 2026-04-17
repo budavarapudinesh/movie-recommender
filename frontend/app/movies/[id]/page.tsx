@@ -1,28 +1,51 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { getMovie, getSimilarMovies, rateMovie, type MovieFull, type RecommendationItem } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import {
+  getMovie,
+  getSimilarMovies,
+  rateMovie,
+  type MovieFull,
+  type RecommendationItem,
+} from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import { posterUrl, backdropUrl } from "@/lib/tmdb";
 import RatingStars from "@/components/RatingStars";
 import RecommendationCarousel from "@/components/RecommendationCarousel";
+import { StreamingProviders } from "@/components/StreamingProviders";
 
-const TMDB_IMG = "https://image.tmdb.org/t/p/w780";
-const TMDB_BACKDROP = "https://image.tmdb.org/t/p/w1280";
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  movie: "Movie",
+  tv: "TV Show",
+  anime: "Anime",
+};
 
 export default function MovieDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const movieId = Number(params.id);
   const [movie, setMovie] = useState<MovieFull | null>(null);
   const [similar, setSimilar] = useState<RecommendationItem[]>([]);
   const [userRating, setUserRating] = useState(0);
   const [ratingMsg, setRatingMsg] = useState("");
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!movieId) return;
-    getMovie(movieId).then((res) => setMovie(res.data));
-    getSimilarMovies(movieId).then((res) => setSimilar(res.data)).catch(() => {});
-  }, [movieId]);
+    getMovie(movieId)
+      .then((res) => setMovie(res.data))
+      .catch((err: unknown) => {
+        console.error("Failed to load movie:", err);
+        setLoadError(true);
+        router.replace("/not-found");
+      });
+    getSimilarMovies(movieId)
+      .then((res) => setSimilar(res.data))
+      .catch((err: unknown) => {
+        console.error("Failed to load similar movies:", err);
+      });
+  }, [movieId, router]);
 
   const handleRate = async (score: number) => {
     if (!isAuthenticated()) {
@@ -39,6 +62,18 @@ export default function MovieDetailPage() {
     }
   };
 
+  const handleWatchlistClick = () => {
+    alert("Watchlist coming soon!");
+  };
+
+  const handleLikeClick = () => {
+    alert("Likes coming soon!");
+  };
+
+  if (loadError) {
+    return null;
+  }
+
   if (!movie) {
     return (
       <div className="animate-pulse space-y-6 pt-12">
@@ -52,6 +87,11 @@ export default function MovieDetailPage() {
   const year = movie.release_date?.slice(0, 4);
   const hours = Math.floor(movie.runtime / 60);
   const mins = movie.runtime % 60;
+  const contentTypeLabel = movie.content_type
+    ? (CONTENT_TYPE_LABELS[movie.content_type] ?? movie.content_type)
+    : null;
+  const justWatchUrl = `https://www.justwatch.com/us/search?q=${encodeURIComponent(movie.title)}`;
+  const providers = movie.watch_providers ?? [];
 
   return (
     <div className="relative -mt-12 -mx-4 sm:-mx-6 lg:-mx-8 min-h-screen pb-20">
@@ -60,8 +100,8 @@ export default function MovieDetailPage() {
         {movie.backdrop_path ? (
           <>
             <img
-              src={`${TMDB_BACKDROP}${movie.backdrop_path}`}
-              alt=""
+              src={backdropUrl(movie.backdrop_path)}
+              alt={movie.title}
               className="w-full h-[80vh] object-cover opacity-30 blur-sm scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
@@ -73,17 +113,20 @@ export default function MovieDetailPage() {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 space-y-16">
-        
+
         {/* Hero Section */}
         <div className="flex flex-col md:flex-row gap-12 items-start">
-          
+
           {/* Poster with 3D shadow */}
           <div className="flex-shrink-0 w-full max-w-[300px] mx-auto md:mx-0 perspective-1000">
             {movie.poster_path ? (
               <img
-                src={`${TMDB_IMG}${movie.poster_path}`}
+                src={posterUrl(movie.poster_path)}
                 alt={movie.title}
                 className="w-full rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 rotate-y-3 rotate-x-2"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
               />
             ) : (
               <div className="w-full aspect-[2/3] bg-card border border-white/5 rounded-2xl flex items-center justify-center text-secondary-text rotate-y-3 rotate-x-2">
@@ -92,20 +135,33 @@ export default function MovieDetailPage() {
             )}
           </div>
 
-          {/* Info Panel Overlay */}
+          {/* Info Panel */}
           <div className="flex-1 space-y-6 bg-black/40 backdrop-blur-md p-8 sm:p-10 rounded-3xl border border-white/5 shadow-2xl">
             <div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-black tracking-tight mb-2 drop-shadow-md">
-                {movie.title}
-              </h1>
-              {movie.tagline && <p className="text-accent-secondary font-medium tracking-wide text-lg sm:text-xl drop-shadow-sm">{movie.tagline}</p>}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-black tracking-tight drop-shadow-md">
+                  {movie.title}
+                </h1>
+                {contentTypeLabel && (
+                  <span className="text-xs font-bold uppercase tracking-widest bg-white/10 border border-white/20 text-white/70 px-3 py-1 rounded-full self-start mt-2">
+                    {contentTypeLabel}
+                  </span>
+                )}
+              </div>
+              {movie.tagline && (
+                <p className="text-accent-secondary font-medium tracking-wide text-lg sm:text-xl drop-shadow-sm">
+                  {movie.tagline}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-gray-300">
               {year && <span className="bg-white/10 px-2 py-1 rounded">{year}</span>}
               {movie.runtime > 0 && <span>{hours}h {mins}m</span>}
               <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
                 <span className="font-bold">{movie.vote_average.toFixed(1)}/10</span>
                 <span className="opacity-70 text-xs">({movie.vote_count.toLocaleString()})</span>
               </div>
@@ -113,7 +169,10 @@ export default function MovieDetailPage() {
 
             <div className="flex flex-wrap gap-2">
               {movie.genres.map((g) => (
-                <span key={g.id} className="bg-white/5 border border-white/10 text-white/80 px-4 py-1.5 rounded-full text-sm hover:bg-white/10 transition-colors cursor-default">
+                <span
+                  key={g.id}
+                  className="bg-white/5 border border-white/10 text-white/80 px-4 py-1.5 rounded-full text-sm hover:bg-white/10 transition-colors cursor-default"
+                >
                   {g.name}
                 </span>
               ))}
@@ -138,18 +197,45 @@ export default function MovieDetailPage() {
               )}
             </div>
 
+            {/* Streaming Providers — prominent placement */}
+            <StreamingProviders
+              providers={providers}
+              movieTitle={movie.title}
+              justWatchUrl={justWatchUrl}
+            />
+
             {/* Action Buttons */}
             <div className="pt-6 flex flex-wrap gap-4">
-              <button className="flex items-center gap-2 bg-white text-black hover:bg-gray-200 px-8 py-3 rounded-full font-bold transition-transform hover:scale-105 shadow-xl">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Watch Trailer
-              </button>
-              <button className="flex items-center gap-2 bg-card hover:bg-white/10 border border-white/10 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg hover:border-white/20">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              {movie.trailer_url && (
+                <a
+                  href={movie.trailer_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-white text-black hover:bg-gray-200 px-8 py-3 rounded-full font-bold transition-transform hover:scale-105 shadow-xl"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  Watch Trailer
+                </a>
+              )}
+              <button
+                onClick={handleWatchlistClick}
+                className="flex items-center gap-2 bg-card hover:bg-white/10 border border-white/10 text-white px-8 py-3 rounded-full font-bold transition-all shadow-lg hover:border-white/20"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14" /><path d="M5 12h14" />
+                </svg>
                 Add to Watchlist
               </button>
-              <button className="flex items-center w-12 h-12 justify-center bg-card hover:bg-white/10 border border-white/10 text-white rounded-full font-bold transition-all shadow-lg hover:border-white/20" title="Like">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              <button
+                onClick={handleLikeClick}
+                className="flex items-center w-12 h-12 justify-center bg-card hover:bg-white/10 border border-white/10 text-white rounded-full font-bold transition-all shadow-lg hover:border-white/20"
+                title="Like"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
               </button>
             </div>
 
@@ -161,7 +247,11 @@ export default function MovieDetailPage() {
               </div>
               <div className="bg-black/50 px-4 py-2 rounded-2xl border border-white/5">
                 <RatingStars value={userRating} onChange={handleRate} />
-                {ratingMsg && <p className="text-sm text-accent-primary mt-1 text-center font-medium animate-pulse">{ratingMsg}</p>}
+                {ratingMsg && (
+                  <p className="text-sm text-accent-primary mt-1 text-center font-medium animate-pulse">
+                    {ratingMsg}
+                  </p>
+                )}
               </div>
             </div>
           </div>

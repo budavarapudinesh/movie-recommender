@@ -40,6 +40,9 @@ class Movie(Base):
     tagline = Column(String(500), default="")
     director = Column(String(255), default="")
     top_cast = Column(Text, default="")  # comma-separated top 5 cast names
+    watch_providers = Column(Text, default="[]")   # JSON string of provider list
+    content_type = Column(String(20), default="movie")  # "movie", "tv", "anime"
+    trailer_url = Column(String(500), default="")
 
     genres = relationship("Genre", secondary=movie_genres, back_populates="movies")
     ratings = relationship("Rating", back_populates="movie")
