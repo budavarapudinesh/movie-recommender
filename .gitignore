@@ -44,3 +44,6 @@ out/
 
 # Node
 node_modules/
+
+# Data / Datasets
+*.csv
