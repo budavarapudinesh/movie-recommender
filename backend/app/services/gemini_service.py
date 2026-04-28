@@ -139,5 +139,48 @@ class GeminiService:
                 found.append(mid)
         return found[:10]
 
+    def is_entertainment_query(self, query: str) -> bool:
+        """
+        Check if the query is related to movies, tv series, actors, or entertainment.
+        Defaults to True (allow) when uncertain — only rejects obvious non-entertainment queries.
+        """
+        if not self.client:
+            logger.warning("Gemini API key missing. Defaulting to True for query classification.")
+            return True
+
+        system = (
+            "You are a strict entertainment search guard for a movie/TV streaming platform. "
+            "A user has typed a search query. Respond ONLY with YES or NO.\n\n"
+            "Say YES if the query COULD be:\n"
+            "- A movie or TV series title (even partial, even if you don't recognize it)\n"
+            "- An actor, actress, director, or crew member name\n"
+            "- A film genre like action, horror, comedy\n"
+            "- An entertainment-related keyword like 'sequel', 'animated', 'oscar winner'\n"
+            "- Anything that plausibly relates to movies, shows, anime, or entertainment\n\n"
+            "Say NO ONLY if the query is CLEARLY a non-entertainment everyday concept with NO plausible movie connection, "
+            "such as: 'pizza', 'car engine', 'python tutorial', 'mathematics', 'weather today', 'stock market'.\n\n"
+            "IMPORTANT: When in doubt, always say YES. Movie titles can be anything — 'Dune', 'Her', 'It', 'Us', 'Cars', 'Up'."
+        )
+
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[query],
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=0.0,
+                    max_output_tokens=5,
+                ),
+            )
+            reply = response.text.strip().upper()
+            # Only reject if response is unambiguously NO
+            if reply.startswith("NO"):
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"Gemini anomaly during classification: {e}")
+            return True  # Fail open — never block a real search due to AI error
+
+
 
 gemini_service = GeminiService()

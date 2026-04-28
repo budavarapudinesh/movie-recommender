@@ -1,18 +1,14 @@
 "use client";
 
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+export function setAuthFlag() {
+  localStorage.setItem("auth_flag", "true");
 }
 
-export function setToken(token: string) {
-  localStorage.setItem("token", token);
-}
-
-export function removeToken() {
-  localStorage.removeItem("token");
+export function removeAuthFlag() {
+  localStorage.removeItem("auth_flag");
 }
 
 export function isAuthenticated(): boolean {
-  return !!getToken();
+  if (typeof window === "undefined") return false;
+  return !!localStorage.getItem("auth_flag");
 }

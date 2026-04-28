@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getMe } from "@/lib/api";
-import { getToken, removeToken } from "@/lib/auth";
+import api, { getMe } from "@/lib/api";
+import { isAuthenticated as getAuthFlag, removeAuthFlag } from "@/lib/auth";
 
 interface User {
   id: number;
@@ -15,8 +15,8 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   const fetchUser = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
+    const hasAuthFlag = getAuthFlag();
+    if (!hasAuthFlag) {
       setUser(null);
       setLoading(false);
       return;
@@ -25,7 +25,7 @@ export function useAuth() {
       const res = await getMe();
       setUser(res.data);
     } catch {
-      removeToken();
+      removeAuthFlag();
       setUser(null);
     } finally {
       setLoading(false);
@@ -36,8 +36,13 @@ export function useAuth() {
     fetchUser();
   }, [fetchUser]);
 
-  const logout = () => {
-    removeToken();
+  const logout = async () => {
+    try {
+      await api.post("/users/logout");
+    } catch (e) {
+      console.error(e);
+    }
+    removeAuthFlag();
     setUser(null);
     window.location.href = "/";
   };

@@ -76,6 +76,15 @@ Full codebase review for movie-recommender project (FastAPI + Next.js + ML)
   - [x] Start frontend server (port 3000)
   - [x] Verify health status
 
+## UI Refactoring Reviews
+### Genre Selector Optimization
+- **Action**: Removed horizontal scrolling 'MovieRow' carousel and the 'HeroBanner' from the home page (`page.tsx`) to strictly simplify layout.
+- **Action**: Cleaned up top-level navigation links by removing 'Discover', 'AI Picks', and 'Ask AI' from the `Navbar.tsx` to streamline header items.
+- **Action**: Centered the 'Genre' filter pills block (`page.tsx`) and upgraded its container from horizontal scroll to a `flex-wrap` cluster, effectively grouping all genres symmetrically in the middle of the viewport.
+- **Action**: Overhauled global Search Bar behavior. Integrated a `useDebounce` hook (500ms frontend delay) attached to an all-new backend `is_entertainment_query` Gemini Semantic classifier in `movies.py`, strictly guaranteeing that non-entertainment entries return an explicit UI prompt "Not found".
+- **Verification**: Restarted NextJS dev server. Performed direct DOM checks showing successful Next.js server-side compilation, absence of horizontal scrolling cards, and clean transition directly from navbar to the centered Genre selector.
+- **Status**: Approved and verified.
+
 ## Notes
 - Project uses SQLite for local dev
 - JWT auth with bcrypt

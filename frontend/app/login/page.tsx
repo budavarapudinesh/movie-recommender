@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { setAuthFlag } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,8 +19,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await login({ username, password });
-      setToken(res.data.access_token);
+      await login({ username, password });
+      setAuthFlag();
       router.push("/");
       router.refresh();
     } catch (err: any) {

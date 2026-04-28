@@ -25,8 +25,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
 
     tmdb_api_key: str = ""
-    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
-    debug: bool = True
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ]
+    debug: bool = False
 
     # Recommendation tuning
     content_weight: float = 0.4

@@ -30,9 +30,18 @@ export default function MovieCard({ movie, size = "md" }: { movie: MovieBrief; s
   const year = movie.release_date?.slice(0, 4) || "";
   const poster = movie.poster_path ? posterUrl(movie.poster_path) : null;
   const widthClass = size === "sm" ? "w-32" : size === "lg" ? "w-56" : "w-44";
+  const isLive = movie.id < 0;
+  const href = isLive
+    ? `https://www.themoviedb.org/movie/${movie.tmdb_id}`
+    : `/movies/${movie.id}`;
 
   return (
-    <Link href={`/movies/${movie.id}`} className={`group block flex-shrink-0 ${widthClass} perspective-1000`}>
+    <Link
+      href={href}
+      target={isLive ? "_blank" : undefined}
+      rel={isLive ? "noopener noreferrer" : undefined}
+      className={`group block flex-shrink-0 ${widthClass} perspective-1000`}
+    >
       <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-card border border-white/5 shadow-lg transform-gpu transition-all duration-500 ease-out
                       group-hover:-translate-y-1.5 group-hover:shadow-2xl group-hover:border-white/20
                       hover:-rotate-y-1 hover:rotate-x-2">
@@ -57,6 +66,13 @@ export default function MovieCard({ movie, size = "md" }: { movie: MovieBrief; s
           </div>
         )}
 
+        {/* Live badge for real-time TMDB results */}
+        {isLive && (
+          <div className="absolute top-2 left-2 bg-blue-500/80 backdrop-blur-md text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg uppercase tracking-wider">
+            New
+          </div>
+        )}
+
         {/* Cinematic Dark Overlay on Hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
           <p className="text-white text-sm font-heading font-bold leading-tight mb-1 line-clamp-1">{movie.title}</p>
@@ -77,7 +93,7 @@ export default function MovieCard({ movie, size = "md" }: { movie: MovieBrief; s
           <div className="flex gap-2">
             <button className="flex-1 bg-white hover:bg-gray-200 text-black text-xs font-bold py-1.5 rounded-full transition-colors flex items-center justify-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-              Play
+              {isLive ? "TMDB" : "Play"}
             </button>
             <button className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md flex items-center justify-center text-white transition-colors" title="Add to Watchlist">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>

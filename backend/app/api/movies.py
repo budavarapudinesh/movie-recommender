@@ -60,11 +60,25 @@ def list_movies(
         query = query.join(Movie.genres).filter(Genre.name.ilike(genre))
 
     if search:
+        # Fast local keyword blocklist — no external API calls, no rate limits
+        # Only blocks obviously non-entertainment queries
+        NON_ENTERTAINMENT_KEYWORDS = {
+            "pizza", "burger", "recipe", "cooking", "weather", "stock market",
+            "cryptocurrency", "bitcoin", "forex", "mathematics", "calculus",
+            "python tutorial", "javascript", "programming", "coding", "software",
+            "tax", "insurance", "mortgage", "real estate", "medicine", "disease",
+        }
+        search_lower = search.strip().lower()
+        if search_lower in NON_ENTERTAINMENT_KEYWORDS:
+            return MovieListResponse(movies=[], total=0, page=page, per_page=per_page)
+
+        # Query local DB
         query = query.filter(
             or_(
                 Movie.title.ilike(f"%{search}%"),
                 Movie.overview.ilike(f"%{search}%"),
                 Movie.director.ilike(f"%{search}%"),
+                Movie.top_cast.ilike(f"%{search}%"),
             )
         )
 
@@ -79,10 +93,57 @@ def list_movies(
     else:
         query = query.order_by(sort_column)
 
-    movies = query.offset((page - 1) * per_page).limit(per_page).all()
+    local_movies = query.offset((page - 1) * per_page).limit(per_page).all()
+    local_briefs = [MovieBrief.model_validate(m) for m in local_movies]
+
+    # ── Hybrid live TMDB search (only on first page, only when searching) ──
+    if search and page == 1 and tmdb_service._has_key():
+        live_results = tmdb_service.search_movies(search, page=1)
+        local_tmdb_ids = {m.tmdb_id for m in local_movies}
+        live_briefs: list[MovieBrief] = []
+
+        for i, item in enumerate(live_results[:12]):
+            item_id = item.get("id")
+            if not item_id or item_id in local_tmdb_ids:
+                continue  # already in DB results
+            media_type = item.get("media_type", "movie")
+            if media_type not in ("movie", "tv"):
+                continue
+
+            title = item.get("title") or item.get("name") or "Unknown"
+            release_date = item.get("release_date") or item.get("first_air_date") or ""
+            poster = item.get("poster_path") or ""
+            vote_avg = float(item.get("vote_average") or 0)
+
+            # Map TMDB genre IDs to our genre objects
+            genre_ids = item.get("genre_ids", [])
+            genres_out: list[GenreOut] = []
+            for gid in genre_ids[:3]:
+                g = db.query(Genre).filter(Genre.id == gid).first()
+                if g:
+                    genres_out.append(GenreOut.model_validate(g))
+
+            live_briefs.append(MovieBrief(
+                id=-(i + 1),          # negative sentinel — not in local DB
+                tmdb_id=item_id,
+                title=title,
+                vote_average=vote_avg,
+                poster_path=poster,
+                release_date=release_date,
+                genres=genres_out,
+            ))
+
+        # Merge: local first, then unique live results
+        combined = local_briefs + live_briefs
+        return MovieListResponse(
+            movies=combined,
+            total=total + len(live_briefs),
+            page=page,
+            per_page=per_page,
+        )
 
     return MovieListResponse(
-        movies=[MovieBrief.model_validate(m) for m in movies],
+        movies=local_briefs,
         total=total,
         page=page,
         per_page=per_page,

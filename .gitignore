@@ -25,15 +25,17 @@ build/
 .DS_Store
 Thumbs.db
 
-# ML Models (store externally)
-*.pkl
+# ML Models (large ones — store externally)
 *.pt
 *.h5
 *.onnx
+# Keep the small pre-trained recommender models (3.3 MB total)
+!backend/app/ml/model_store/*.pkl
 
 # Database
-*.db
 *.sqlite
+# Keep the seeded movie database (3.3 MB)
+!backend/data/movies.db
 
 # Logs
 *.log
@@ -47,3 +49,4 @@ node_modules/
 
 # Data / Datasets
 *.csv
+cookies.txt

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
 from app.models.rating import Rating
@@ -11,6 +12,7 @@ from app.services.auth_service import hash_password, verify_password, create_acc
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 limiter = Limiter(key_func=get_remote_address)
+settings = get_settings()
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -38,13 +40,28 @@ def register(request: Request, data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 @limiter.limit("5/minute")
-def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, response: Response, data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == data.username).first()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token({"sub": str(user.id)})
+    
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {token}",
+        httponly=True,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+    )
+    
     return Token(access_token=token)
+
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(key="access_token", samesite="lax")
+    return {"detail": "Successfully logged out"}
 
 
 @router.get("/me", response_model=UserOut)

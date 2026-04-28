@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -12,7 +12,7 @@ from app.models.user import User
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -32,6 +32,7 @@ def create_access_token(data: dict) -> str:
 
 
 def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -40,6 +41,17 @@ def get_current_user(
         detail="Invalid authentication credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    if not token:
+        cookie_token = request.cookies.get("access_token")
+        if cookie_token and cookie_token.startswith("Bearer "):
+            token = cookie_token.split(" ")[1]
+        elif cookie_token:
+            token = cookie_token
+            
+    if not token:
+        raise credentials_exception
+
     try:
         payload = pyjwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id_str = payload.get("sub")
