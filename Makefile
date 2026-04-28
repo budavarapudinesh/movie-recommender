@@ -1,4 +1,4 @@
-.PHONY: help install dev-backend dev-frontend test clean db-init db-seed models-train
+.PHONY: help install dev-backend dev-frontend test clean db-init
 
 help:
 	@echo "Available commands:"
@@ -8,8 +8,6 @@ help:
 	@echo "  make test           - Run tests"
 	@echo "  make clean          - Clean cache files"
 	@echo "  make db-init        - Initialize database"
-	@echo "  make db-seed        - Seed database with data"
-	@echo "  make models-train   - Train ML models"
 
 install:
 	cd backend && pip install -r requirements.txt
@@ -31,9 +29,3 @@ clean:
 
 db-init:
 	cd backend && python3.11 -c "from app.database import engine, Base; Base.metadata.create_all(bind=engine)"
-
-db-seed:
-	cd backend && python3.11 scripts/seed_ratings.py
-
-models-train:
-	cd backend && python3.11 -m app.ml.train_models

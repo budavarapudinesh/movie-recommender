@@ -25,17 +25,8 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
 
     tmdb_api_key: str = ""
-    allowed_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ]
-    debug: bool = False
-
-    # Recommendation tuning
-    content_weight: float = 0.4
-    collaborative_weight: float = 0.4
-    popularity_weight: float = 0.2
-    cold_start_threshold: int = 5  # min ratings before collaborative kicks in
+    allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    debug: bool = True
 
     model_config = {"env_file": str(_ENV_FILE), "extra": "ignore"}
 

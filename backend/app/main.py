@@ -10,10 +10,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.config import get_settings
-from app.database import engine, Base, SessionLocal
+from app.database import engine, Base
 from app.api import movies, users, recommendations, chat
-from app.services.hybrid_engine import hybrid_engine
-from app.ml.train_models import CONTENT_MODEL_PATH, COLLAB_MODEL_PATH, get_popularity_map
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,28 +26,17 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables and load models
+    # Startup: create tables
     Base.metadata.create_all(bind=engine)
-
-    # Load pre-trained models if they exist
-    hybrid_engine.load_models(CONTENT_MODEL_PATH, COLLAB_MODEL_PATH)
-
-    # Load popularity scores
-    db = SessionLocal()
-    try:
-        hybrid_engine.set_popularity(get_popularity_map(db))
-    finally:
-        db.close()
-
-    logger.info("Movie Recommender API started. Models loaded.")
+    logger.info("Movie Recommender API started.")
     yield
     logger.info("Shutting down.")
 
 
 app = FastAPI(
     title="Movie Recommender API",
-    description="Industry-level hybrid movie recommendation system with ML and Gemini AI",
-    version="1.0.0",
+    description="Movie recommendation system powered by TMDB and Gemini AI",
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
@@ -100,8 +87,4 @@ app.include_router(chat.router)
 
 @app.get("/api/health")
 def health():
-    return {
-        "status": "ok",
-        "content_model_loaded": hybrid_engine.content_engine.tfidf_matrix is not None,
-        "collab_model_loaded": hybrid_engine.collab_engine.is_trained,
-    }
+    return {"status": "ok", "version": "2.0.0", "engine": "tmdb+gemini"}

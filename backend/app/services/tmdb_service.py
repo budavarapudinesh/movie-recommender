@@ -121,5 +121,33 @@ class TMDBService:
             return result.get("results", [])
         return []
 
+    def get_recommendations_tmdb(self, tmdb_id: int, page: int = 1) -> list[dict]:
+        """Get TMDB-powered recommendations for a movie."""
+        result = self._get(f"movie/{tmdb_id}/recommendations", {"page": page, "language": "en-US"})
+        if isinstance(result, dict):
+            return result.get("results", [])
+        return []
+
+    def get_similar_tmdb(self, tmdb_id: int, page: int = 1) -> list[dict]:
+        """Get similar movies from TMDB."""
+        result = self._get(f"movie/{tmdb_id}/similar", {"page": page, "language": "en-US"})
+        if isinstance(result, dict):
+            return result.get("results", [])
+        return []
+
+    def get_trending_week(self, page: int = 1) -> list[dict]:
+        """Get trending movies this week."""
+        result = self._get("trending/movie/week", {"page": page, "language": "en-US"})
+        if isinstance(result, dict):
+            return result.get("results", [])
+        return []
+
+    def get_popular(self, page: int = 1) -> list[dict]:
+        """Get popular movies."""
+        result = self._get("movie/popular", {"page": page, "language": "en-US"})
+        if isinstance(result, dict):
+            return result.get("results", [])
+        return []
+
 
 tmdb_service = TMDBService()

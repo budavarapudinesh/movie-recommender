@@ -28,11 +28,9 @@ export default function RecommendationsPage() {
   }, [router]);
 
   const strategyLabel =
-    strategy === "hybrid"
-      ? "Based on your ratings and viewing patterns"
-      : strategy === "content_based"
-      ? "Based on movies you've rated highly"
-      : "Trending and popular picks for new users";
+    strategy === "personalized"
+      ? "Based on movies you've rated"
+      : "Trending movies this week";
 
   if (loading) {
     return (

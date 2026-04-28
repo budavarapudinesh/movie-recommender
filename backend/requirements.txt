@@ -8,11 +8,6 @@ passlib==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.18
 google-genai==1.7.0
-scikit-learn==1.6.0
-scikit-surprise==1.1.4
-pandas==2.2.3
-numpy<2
-httpx==0.28.1
 python-dotenv==1.0.1
 slowapi>=0.1.9
 email-validator>=2.0.0
