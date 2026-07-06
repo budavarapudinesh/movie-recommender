@@ -7,7 +7,7 @@ AI-powered hybrid movie recommendation system with FastAPI backend and Next.js f
 - **Backend**: FastAPI, SQLAlchemy, SQLite
 - **Frontend**: Next.js 14, TypeScript, TailwindCSS
 - **ML**: Scikit-learn (TF-IDF), Surprise (SVD), Gemini AI
-- **Auth**: JWT with bcrypt
+- **Auth**: JWT with bcrypt (Note: Short-lived access tokens used. Refresh token rotation is planned for future production parity.)
 
 ## Project Structure
 
@@ -55,6 +55,9 @@ movie-recommender/
 
 ### Local Development
 
+**Development (SQLite)**:
+By default, the backend uses a local SQLite database for rapid development.
+
 ```bash
 # Install dependencies
 make install
@@ -64,6 +67,21 @@ make db-init
 
 # Seed with sample data
 make db-seed
+```
+
+**Production (PostgreSQL)**:
+For production or concurrent user testing, you should use PostgreSQL. The `psycopg2-binary` driver is already installed.
+
+1. Ensure PostgreSQL is running locally or via Docker.
+2. Create a `.env` file in the `backend/` directory and set the `DATABASE_URL`:
+   ```bash
+   DATABASE_URL=postgresql://user:password@localhost:5432/movies_db
+   ```
+3. Run migrations and seed data just like SQLite:
+   ```bash
+   make db-init
+   make db-seed
+   ```
 
 # Train ML models
 make models-train

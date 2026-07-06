@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/api";
+import axios from "axios";
 import { setAuthFlag } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -23,8 +24,12 @@ export default function LoginPage() {
       setAuthFlag();
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Login failed");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.detail || "Login failed");
+      } else {
+        setError("Login failed");
+      }
     } finally {
       setLoading(false);
     }

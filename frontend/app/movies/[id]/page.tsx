@@ -200,7 +200,6 @@ export default function MovieDetailPage() {
             {/* Streaming Providers — prominent placement */}
             <StreamingProviders
               providers={providers}
-              movieTitle={movie.title}
               justWatchUrl={justWatchUrl}
             />
 

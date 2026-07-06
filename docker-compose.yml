@@ -13,7 +13,6 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       - ./backend/data:/app/data
-      - ./backend/app/ml/model_store:/app/app/ml/model_store
     restart: unless-stopped
 
   frontend:

@@ -2,6 +2,8 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
+from pythonjsonlogger import json
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,10 +15,13 @@ from app.config import get_settings
 from app.database import engine, Base
 from app.api import movies, users, recommendations, chat
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+# Structured JSON Logging Setup
+logHandler = logging.StreamHandler()
+formatter = json.JsonFormatter(
+    '%(asctime)s %(levelname)s %(name)s %(message)s'
 )
+logHandler.setFormatter(formatter)
+logging.basicConfig(level=logging.INFO, handlers=[logHandler])
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
@@ -72,10 +77,31 @@ async def error_handling_middleware(request: Request, call_next):
     start = time.time()
     try:
         response = await call_next(request)
-        response.headers["X-Response-Time"] = f"{(time.time() - start) * 1000:.0f}ms"
+        latency = (time.time() - start) * 1000
+        response.headers["X-Response-Time"] = f"{latency:.0f}ms"
+        
+        # Log request summary
+        logger.info(
+            "HTTP request",
+            extra={
+                "http.method": request.method,
+                "http.url": str(request.url),
+                "http.status_code": response.status_code,
+                "duration_ms": round(latency, 2)
+            }
+        )
         return response
-    except Exception:
-        logger.exception("Unhandled exception during request")
+    except Exception as e:
+        latency = (time.time() - start) * 1000
+        logger.exception(
+            "Unhandled exception during request",
+            extra={
+                "http.method": request.method,
+                "http.url": str(request.url),
+                "http.status_code": 500,
+                "duration_ms": round(latency, 2)
+            }
+        )
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 

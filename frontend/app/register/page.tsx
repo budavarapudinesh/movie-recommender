@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { register, login } from "@/lib/api";
+import axios from "axios";
 import { setAuthFlag } from "@/lib/auth";
 
 export default function RegisterPage() {
@@ -25,8 +26,12 @@ export default function RegisterPage() {
       setAuthFlag();
       router.push("/");
       router.refresh();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Registration failed");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.detail || "Registration failed");
+      } else {
+        setError("Registration failed");
+      }
     } finally {
       setLoading(false);
     }

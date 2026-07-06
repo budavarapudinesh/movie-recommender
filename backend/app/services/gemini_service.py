@@ -1,4 +1,5 @@
 import logging
+import time
 
 from google import genai
 from google.genai import types
@@ -12,6 +13,11 @@ from app.models.rating import Rating
 from app.schemas.movie import MovieBrief
 
 settings = get_settings()
+
+# Circuit breaker constants
+_CB_FAILURE_THRESHOLD = 3   # consecutive failures to trip
+_CB_RECOVERY_TIMEOUT = 60   # seconds before retrying after trip
+_REQUEST_TIMEOUT = 15       # seconds per Gemini API call
 
 SYSTEM_PROMPT = """You are a movie recommendation assistant. You help users discover movies they'll love.
 
@@ -32,12 +38,33 @@ Format movie recommendations as:
 class GeminiService:
     def __init__(self):
         self._client = None
+        # Circuit breaker state
+        self._consecutive_failures = 0
+        self._last_failure_time: float = 0
 
     @property
     def client(self):
         if self._client is None and settings.gemini_api_key:
             self._client = genai.Client(api_key=settings.gemini_api_key)
         return self._client
+
+    def _is_circuit_open(self) -> bool:
+        """Check if circuit breaker is tripped (too many recent failures)."""
+        if self._consecutive_failures < _CB_FAILURE_THRESHOLD:
+            return False
+        elapsed = time.monotonic() - self._last_failure_time
+        if elapsed > _CB_RECOVERY_TIMEOUT:
+            # Recovery window passed — allow a retry
+            logger.info("Circuit breaker recovery: allowing retry after %.0fs", elapsed)
+            return False
+        return True
+
+    def _record_success(self):
+        self._consecutive_failures = 0
+
+    def _record_failure(self):
+        self._consecutive_failures += 1
+        self._last_failure_time = time.monotonic()
 
     def chat(
         self,
@@ -52,6 +79,10 @@ class GeminiService:
         """
         if not self.client:
             return "Gemini API key not configured. Please set GEMINI_API_KEY.", []
+
+        if self._is_circuit_open():
+            logger.warning("Circuit breaker OPEN: skipping Gemini API call")
+            return "The AI assistant is temporarily unavailable. Please try again later.", []
 
         # Build user context from their ratings
         user_context = ""
@@ -68,6 +99,7 @@ class GeminiService:
         contents.append(types.Content(role="user", parts=[types.Part.from_text(text=message)]))
 
         try:
+            from google.genai.types import HttpOptions
             response = self.client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=contents,
@@ -75,10 +107,13 @@ class GeminiService:
                     system_instruction=system,
                     temperature=0.8,
                     max_output_tokens=1024,
+                    http_options=HttpOptions(timeout=_REQUEST_TIMEOUT)
                 ),
             )
+            self._record_success()
             reply = response.text or "I couldn't generate a response. Please try again."
         except Exception as e:
+            self._record_failure()
             logger.error(f"Gemini API error: {e}")
             return "The AI assistant is temporarily unavailable. Please try again later.", []
 
@@ -144,8 +179,11 @@ class GeminiService:
         Check if the query is related to movies, tv series, actors, or entertainment.
         Defaults to True (allow) when uncertain — only rejects obvious non-entertainment queries.
         """
-        if not self.client:
-            logger.warning("Gemini API key missing. Defaulting to True for query classification.")
+        if not self.client or self._is_circuit_open():
+            if not self.client:
+                logger.warning("Gemini API key missing. Defaulting to True for query classification.")
+            else:
+                logger.warning("Circuit breaker OPEN: defaulting to True for classification")
             return True
 
         system = (
@@ -163,6 +201,7 @@ class GeminiService:
         )
 
         try:
+            from google.genai.types import HttpOptions
             response = self.client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=[query],
@@ -170,14 +209,17 @@ class GeminiService:
                     system_instruction=system,
                     temperature=0.0,
                     max_output_tokens=5,
+                    http_options=HttpOptions(timeout=_REQUEST_TIMEOUT)
                 ),
             )
+            self._record_success()
             reply = response.text.strip().upper()
             # Only reject if response is unambiguously NO
             if reply.startswith("NO"):
                 return False
             return True
         except Exception as e:
+            self._record_failure()
             logger.error(f"Gemini anomaly during classification: {e}")
             return True  # Fail open — never block a real search due to AI error
 

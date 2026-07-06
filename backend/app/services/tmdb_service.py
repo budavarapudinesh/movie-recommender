@@ -16,10 +16,8 @@ logger = logging.getLogger(__name__)
 TMDB_BASE = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p"
 
-# Permissive SSL context — needed for TMDB CloudFront on certain networks
+# Use default SSL context with proper certificate verification
 _SSL_CTX = ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = ssl.CERT_NONE
 
 
 class TMDBService:

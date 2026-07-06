@@ -5,11 +5,10 @@ import { logoUrl } from "@/lib/tmdb";
 
 interface StreamingProvidersProps {
   providers: WatchProvider[];
-  movieTitle: string;
   justWatchUrl: string;
 }
 
-export function StreamingProviders({ providers, movieTitle, justWatchUrl }: StreamingProvidersProps) {
+export function StreamingProviders({ providers, justWatchUrl }: StreamingProvidersProps) {
   const streamProviders = providers.filter(
     (p) => p.type === "flatrate" || p.type === "free" || p.type === "ads"
   );

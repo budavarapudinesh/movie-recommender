@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -39,7 +40,7 @@ def _fetch_tmdb_and_update(movie_id: int) -> None:
         movie.trailer_url = tmdb_service.get_movie_videos(movie.tmdb_id)
         db.commit()
     except Exception:
-        pass
+        logging.getLogger(__name__).exception("Failed to fetch TMDB data for movie %s", movie_id)
     finally:
         db.close()
 

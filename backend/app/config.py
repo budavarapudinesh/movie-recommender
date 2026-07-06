@@ -21,12 +21,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     secret_key: str = ""
     database_url: str = f"sqlite:///{_DB_PATH}"
-    access_token_expire_minutes: int = 1440  # 24 hours
+    access_token_expire_minutes: int = 60  # 1 hour
     algorithm: str = "HS256"
 
     tmdb_api_key: str = ""
     allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
-    debug: bool = True
+    debug: bool = False
 
     model_config = {"env_file": str(_ENV_FILE), "extra": "ignore"}
 

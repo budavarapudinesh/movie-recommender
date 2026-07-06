@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getMovies,
   getGenres,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/api";
 import MovieGrid from "@/components/MovieGrid";
 import { useDebounce } from "@/hooks/useDebounce";
+import { isAuthenticated } from "@/lib/auth";
 
 const CONTENT_TYPE_TABS = [
   { label: "All", value: "" },
@@ -18,6 +20,7 @@ const CONTENT_TYPE_TABS = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [movies, setMovies] = useState<MovieBrief[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [search, setSearch] = useState("");
@@ -29,6 +32,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/login");
+    }
+  }, [router]);
+
+  useEffect(() => {
     getGenres()
       .then((res) => setGenres(res.data))
       .catch((err: unknown) => {
@@ -37,7 +46,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
     getMovies({
       page,
       per_page: 24,
@@ -58,7 +66,6 @@ export default function Home() {
   }, [page, selectedGenre, debouncedSearch, selectedContentType]);
 
   const totalPages = Math.ceil(total / 24);
-  const isFiltering = !!(search || selectedGenre || selectedContentType);
 
   const handleContentTypeChange = (value: string) => {
     setSelectedContentType(value);
